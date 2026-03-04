@@ -1,9 +1,10 @@
 class Lua < Formula
   desc "Powerful, lightweight programming language"
   homepage "https://www.lua.org/"
-  url "https://www.lua.org/ftp/lua-5.4.8.tar.gz"
-  sha256 "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae"
+  url "https://www.lua.org/ftp/lua-5.5.0.tar.gz"
+  sha256 "57ccc32bbbd005cab75bcc52444052535af691789dba2b9016d5c50640d68b3d"
   license "MIT"
+  compatibility_version 1
 
   livecheck do
     url "https://www.lua.org/ftp/"
@@ -21,18 +22,12 @@ class Lua < Formula
     sha256 cellar: :any_skip_relocation, x86_64_linux:  "f4edfa03fd344d303def0992a7e02fe5e614c3e9c256e44b84348bb0fe108a13"
   end
 
-  uses_from_macos "unzip" => :build
-
-  on_linux do
-    depends_on "readline"
-  end
-
   # Be sure to build a dylib, or else runtime modules will pull in another static copy of liblua = crashy
   # See: https://github.com/Homebrew/legacy-homebrew/pull/5043
   patch do
     on_macos do
-      url "https://raw.githubusercontent.com/Homebrew/homebrew-core/1cf441a0/Patches/lua/lua-dylib.patch"
-      sha256 "a39e2ae1066f680e5c8bf1749fe09b0e33a0215c31972b133a73d43b00bf29dc"
+      url "https://raw.githubusercontent.com/Homebrew/homebrew-core/5352663dda24d1bd4778e31292fcc86642a25fee/Patches/lua/lua-dylib.patch"
+      sha256 "3f290683cfc3796443e5cb3bd996674cae229408e42152f652731c1e9f55ad28"
     end
 
     # Add shared library for linux. Equivalent to the mac patch above.
@@ -44,12 +39,10 @@ class Lua < Formula
   end
 
   def install
-    if OS.linux?
-      # Fix: /usr/bin/ld: lapi.o: relocation R_X86_64_32 against `luaO_nilobject_' can not be used
-      # when making a shared object; recompile with -fPIC
-      # See https://www.linuxfromscratch.org/blfs/view/cvs/general/lua.html
-      ENV.append_to_cflags "-fPIC"
-    end
+    # Fix: /usr/bin/ld: lapi.o: relocation R_X86_64_32 against `luaO_nilobject_' can not be used
+    # when making a shared object; recompile with -fPIC
+    # See https://www.linuxfromscratch.org/blfs/view/cvs/general/lua.html
+    ENV.append_to_cflags "-fPIC" if OS.linux?
 
     # Substitute formula prefix in `src/Makefile` for install name (dylib ID).
     # Use our CC/CFLAGS to compile.
@@ -66,7 +59,7 @@ class Lua < Formula
     os = if OS.mac?
       "macosx"
     else
-      "linux-readline"
+      "linux"
     end
 
     system "make", os, "INSTALL_TOP=#{prefix}"
@@ -76,15 +69,16 @@ class Lua < Formula
     libs = %w[-llua -lm]
     libs << "-ldl" if OS.linux?
     (lib/"pkgconfig/lua.pc").write <<~EOS
-      V= #{version.major_minor}
-      R= #{version}
-      prefix=#{HOMEBREW_PREFIX}
-      INSTALL_BIN= ${prefix}/bin
-      INSTALL_INC= ${prefix}/include/lua
-      INSTALL_LIB= ${prefix}/lib
-      INSTALL_MAN= ${prefix}/share/man/man1
-      INSTALL_LMOD= ${prefix}/share/lua/${V}
-      INSTALL_CMOD= ${prefix}/lib/lua/${V}
+      V=#{version.major_minor}
+      R=#{version}
+
+      prefix=#{versioned_formula? ? opt_prefix : HOMEBREW_PREFIX}
+      INSTALL_BIN=${prefix}/bin
+      INSTALL_INC=${prefix}/include/lua
+      INSTALL_LIB=${prefix}/lib
+      INSTALL_MAN=${prefix}/share/man/man1
+      INSTALL_LMOD=${prefix}/share/lua/${V}
+      INSTALL_CMOD=${prefix}/lib/lua/${V}
       exec_prefix=${prefix}
       libdir=${exec_prefix}/lib
       includedir=${prefix}/include/lua
